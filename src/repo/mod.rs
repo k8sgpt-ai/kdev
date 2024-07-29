@@ -1,13 +1,13 @@
 use std::error::Error;
 use std::{env, os};
 use std::path::Path;
+use colored::Colorize;
 use git2::build::RepoBuilder;
 use git2::{Cred, FetchOptions, RemoteCallbacks};
 use log::{ error};
 use string_error;
 #[derive(Default)]
-pub struct RepoManagerBuilder {
-}
+pub struct RepoManagerBuilder;
 
 impl RepoManagerBuilder {
 
@@ -18,7 +18,7 @@ impl RepoManagerBuilder {
     }
     pub fn build(self) -> RepoManager {
         RepoManager{
-            allow_existing_repos: false
+
         }
     }
 }
@@ -29,16 +29,12 @@ const K8SGPT_REMOTE_REPO_NAMES: [&str; 3] = [
     "k8sgpt",
     "k8sgpt-operator"];
 
-pub struct RepoManager{
-    allow_existing_repos: bool
-}
-
+pub struct RepoManager;
 impl RepoManager {
 
     pub fn builder() -> RepoManagerBuilder {
         RepoManagerBuilder::default()
     }
-
     pub fn clone_repo(self) -> Result<(), Box<dyn Error >> {
         let mut builder = RepoBuilder::new();
         let mut callbacks = RemoteCallbacks::new();
@@ -61,9 +57,8 @@ impl RepoManager {
         for repo in K8SGPT_REMOTE_REPO_NAMES {
             let repo_url = format!("{}{}.git", K8SGPT_REPO_PREFIX, repo);
             let repo_folder = format!("{}/{}", K8SGPT_DEV_FOLDER_NAME, repo);
-            let repo = builder.clone(repo_url.as_str(), Path::new(repo_folder.as_str())).expect("Could not clone repo");
-
-            println!("Clone complete");
+            builder.clone(repo_url.as_str(), Path::new(repo_folder.as_str())).expect("Could not clone repo");
+            println!("{}",format!("Cloning {} complete", repo).blue());
         }
         Ok(())
     }
