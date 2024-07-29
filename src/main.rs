@@ -21,7 +21,8 @@ enum Commands {
     Teardown {},
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
    let args = Args::parse();
     let checks = checks::Checks::builder().build();
     checks.run_preflight();
@@ -33,15 +34,16 @@ fn main() {
                 println!("! {:?}", why);
             });
             // Fetch the remote repositories
-            repo_manager.clone_repo().expect("error cloning repositories")
+            repo_manager.clone_repo().await.expect("error cloning repositories");
         }
         Commands::Run { .. } => {
-            orchestrator.run().expect("error running orchestrator")
+            orchestrator.run().await.expect("error running orchestrator")
         }
         Commands::Update { .. } => {
 
         }
         Commands::Teardown { .. } => {
+            //orchestrator.remove().expect("error removing resources");
             fs::remove_dir_all(Path::new(repo::K8SGPT_DEV_FOLDER_NAME)).expect("error deleting workspace")
         }
     }

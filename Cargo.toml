@@ -10,3 +10,6 @@ whoami = "1.5.1"
 log = "0.4.22"
 string-error = "0.1.0"
 colored = "2.1.0"
+tokio = { version = "1", features = ["full"] }
+mio = "1.0.1"
+notify = "6.1.1"
