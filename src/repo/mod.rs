@@ -8,6 +8,7 @@ use git2::{Cred, FetchOptions, RemoteCallbacks};
 use log::{ error};
 use string_error;
 use tokio::task::JoinHandle;
+use crate::config::Config;
 
 #[derive(Default)]
 pub struct RepoManagerBuilder;
@@ -25,12 +26,6 @@ impl RepoManagerBuilder {
         }
     }
 }
-pub const K8SGPT_DEV_FOLDER_NAME: &str = "k8sgpt-dev";
-const K8SGPT_REPO_PREFIX: &str = "git@github.com:k8sgpt-ai/";
-pub(crate) const K8SGPT_REMOTE_REPO_NAMES: [&str; 3] = [
-    "schemas",
-    "k8sgpt",
-    "k8sgpt-operator"];
 
 pub struct RepoManager;
 impl RepoManager {
@@ -38,12 +33,13 @@ impl RepoManager {
     pub fn builder() -> RepoManagerBuilder {
         RepoManagerBuilder::default()
     }
-    pub async fn clone_repo(self) -> Result<(), Box<dyn Error >> {
+    pub async fn clone_repo(self, config: Config) -> Result<(), Box<dyn Error >> {
 
         let mut tasks: Vec<JoinHandle<()>> = vec![];
-        for repo in K8SGPT_REMOTE_REPO_NAMES {
-            let repo_url = format!("{}{}.git", K8SGPT_REPO_PREFIX, repo);
-            let repo_folder = format!("{}/{}", K8SGPT_DEV_FOLDER_NAME, repo);
+        for i in 0..config.repositories.len() {
+            let repo = config.repositories[i].clone();
+            let repo_url = format!("{}{}.git", config.github_organisation_prefix.clone(), repo.name.clone());
+            let repo_folder = format!("{}/{}", config.folder_root.clone(), repo.name.clone());
             // async cloning
             tasks.push(tokio::spawn(
                 {
@@ -65,7 +61,7 @@ impl RepoManager {
                     fetch_options.remote_callbacks(callbacks);
                     builder.fetch_options(fetch_options);
                  builder.clone(repo_url.as_str(), Path::new(repo_folder.as_str())).unwrap();
-                 println!("{}",format!("Cloning {} complete", repo).blue());
+                 println!("{}",format!("Cloning {} complete", repo.name.clone()).blue());
             }}));
         }
 
