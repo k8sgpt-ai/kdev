@@ -73,4 +73,8 @@ impl Config {
         let config: Config = serde_json::from_str(&contents)?;
         Ok(config)
     }
+    pub fn exists(self) -> bool {
+        let path = format!("{}/config.json", self.folder_root);
+        std::path::Path::new(&path).exists()
+    }
 }

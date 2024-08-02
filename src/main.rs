@@ -28,7 +28,7 @@ enum Commands {
 async fn main() {
    let args = Args::parse();
     // This is our global config. It is written to disk when we setup and used as a reference until teardown
-    let config = config::Config::builder()
+    let mut config = config::Config::builder()
         .set_github_organisation_prefix("git@github.com:k8sgpt-ai/".to_string())
         .set_folder_root("k8sgpt-dev".to_string())
         .set_repositories(vec![
@@ -54,6 +54,10 @@ async fn main() {
                 },
             },
         ]).build();
+    if config.clone().exists() {
+        // reload the config from disk and update the orchestrator
+        config = config.read_config().unwrap()
+    }
     let checks = checks::Checks::builder().build();
     let repo_manager = repo::RepoManager::builder()
         .build();
@@ -62,12 +66,17 @@ async fn main() {
 
     // Signal handling
     // ctrl-c
-    tokio::spawn(async {
-        let mut term = signal(SignalKind::interrupt()).unwrap();
-        term.recv().await;
-        println!("{}","Received interrupt signal".red());
-
-    });
+    tokio::spawn(
+        {
+            // This code branch will not be updated
+            let orchestrator = orchestrator.clone();
+            async {
+                let mut term = signal(SignalKind::interrupt()).unwrap();
+                term.recv().await;
+                println!("{}","Received interrupt signal".red());
+                orchestrator.stop_services().await.expect("error stopping services");
+            }
+        });
 
     match args.command.expect("requires a command") {
         Commands::Setup { .. } => {

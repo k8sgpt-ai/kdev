@@ -1,12 +1,7 @@
-use std::arch::aarch64::int32x2_t;
-use std::collections::HashMap;
-use std::ptr::hash;
 use colored::Colorize;
 use notify::{ EventKind, RecommendedWatcher, Watcher};
 use notify::Config as nconfig;
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::task::JoinHandle;
-use crate::repo;
 use crate::config::Config;
 
 #[derive(Debug,Default)]
@@ -32,6 +27,7 @@ impl OrchestrationBuilder {
     }
 }
 
+#[derive(Clone)]
 pub struct Orchestration {
     config: Config,
     pids: Vec<u32>
@@ -44,7 +40,13 @@ impl Orchestration {
 
     pub async fn stop_services(self) -> Result<(), Box<dyn std::error::Error>> {
         println!("Stopping services");
-
+        for pid in self.pids {
+            println!("{} {}", "Stopping".red(), pid);
+            let _ = tokio::process::Command::new("kill")
+                .arg("-9")
+                .arg(pid.to_string())
+                .output().await?;
+        }
         Ok(())
     }
     pub async fn start_services(mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -55,7 +57,7 @@ impl Orchestration {
             tokio::spawn({
                 let repo = repo.clone();
                 let folder_root = self.config.folder_root.clone();
-                let tx = tx.clone();
+                let tx: tokio::sync::mpsc::Sender<u32> = tx.clone();
                 async move {
                     if !repo.command.start.is_empty() {
                         // stream the output from the program
@@ -66,12 +68,12 @@ impl Orchestration {
                             .current_dir(format!("{}/{}", folder_root, repo.name))
                             .spawn()
                             .expect("failed to start process");
+                        let child_id = child.id();
+                        println!("{} {} with pid {}", "Starting".yellow(), repo.name, child_id.unwrap());
+                        tx.send(child.id().unwrap()).await.unwrap();
                         let stdout = child.stdout.take().unwrap();
                         // store the childID
-                        let child_id = child.id();
                         //self.pids.insert(repo.name.clone(), child_id.unwrap());
-                        println!("{} {} with pid {}", "Starting".green(), repo.name, child_id.unwrap());
-                        tx.send(child.id().unwrap()).await.unwrap();
                         let mut reader = BufReader::new(stdout);
                         let mut line = String::new();
                         loop {
@@ -91,9 +93,8 @@ impl Orchestration {
                 }
             });
         }
-        // recv channel rx
         while let Some(message) = rx.recv().await {
-            println!("GOT = {}", message);
+            self.pids.push(message);
         }
 
         Ok(())
@@ -114,22 +115,19 @@ impl Orchestration {
                     loop {
                         match rx.recv() {
                             Ok(event) => {
-                                match event {
-                                    Ok(e) => {
-                                        match e.kind {
-                                            EventKind::Any => {}
-                                            EventKind::Access(_) => {}
-                                            EventKind::Create(_) => {}
-                                            EventKind::Modify(_) => {
-                                                // restart the components
-                                                println!("Detected changes in {}, reloading", e.paths[0].display());
+                                if let Ok(e) = event {
+                                    match e.kind {
+                                        EventKind::Any => {}
+                                        EventKind::Access(_) => {}
+                                        EventKind::Create(_) => {}
+                                        EventKind::Modify(_) => {
+                                            // restart the components
+                                            println!("Detected changes in {}, reloading", e.paths[0].display());
 
-                                            }
-                                            EventKind::Remove(_) => {}
-                                            EventKind::Other => {}
                                         }
+                                        EventKind::Remove(_) => {}
+                                        EventKind::Other => {}
                                     }
-                                    Err(_) => {}
                                 }
                             }
                             Err(e) => {
