@@ -1,5 +1,5 @@
-use std::env;
 use colored::Colorize;
+use std::env;
 
 pub struct ChecksBuilder;
 
@@ -24,48 +24,53 @@ impl Checks {
         // check if docker is running
         let output = std::process::Command::new("docker")
             .arg("info")
-            .output().unwrap();
+            .output()
+            .unwrap();
         if output.status.code().unwrap() != 0 {
-            println!("{}","Docker is not running".red());
+            println!("{}", "Docker is not running".red());
         } else {
-            println!("{}","Docker is running".green());
+            println!("{}", "Docker is running".green());
         }
         // Check if golang is installed
         let output = std::process::Command::new("go")
             .arg("version")
-            .output().unwrap();
+            .output()
+            .unwrap();
         if output.status.code().unwrap() != 0 {
-            println!("{}","Golang is not installed".red());
+            println!("{}", "Golang is not installed".red());
         } else {
-            println!("{}","Golang is installed".green());
+            println!("{}", "Golang is installed".green());
         }
         // Check if there is an ssh key installed
         let output = std::process::Command::new("ls")
             .arg("-al")
             .arg(format!("{}/.ssh/id_rsa", env::var("HOME").unwrap()))
-            .output().unwrap();
+            .output()
+            .unwrap();
         if output.status.code().unwrap() != 0 {
-            println!("{}","SSH key is not installed".red());
+            println!("{}", "SSH key is not installed".red());
         } else {
-            println!("{}","SSH key is installed".green());
+            println!("{}", "SSH key is installed".green());
         }
         // Check if kubectl is installed
         let output = std::process::Command::new("kubectl")
             .arg("version")
-            .output().unwrap();
+            .output()
+            .unwrap();
         if output.status.code().unwrap() != 0 {
-            println!("{}","Kubectl is not installed".red());
+            println!("{}", "Kubectl is not installed".red());
         } else {
-            println!("{}","Kubectl is installed".green());
+            println!("{}", "Kubectl is installed".green());
         }
         // Check if Make is installed
         let output = std::process::Command::new("make")
             .arg("--version")
-            .output().unwrap();
+            .output()
+            .unwrap();
         if output.status.code().unwrap() != 0 {
-            println!("{}","Make is not installed".red());
+            println!("{}", "Make is not installed".red());
         } else {
-            println!("{}","Make is installed".green());
+            println!("{}", "Make is installed".green());
         }
     }
 }

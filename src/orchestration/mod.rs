@@ -1,19 +1,17 @@
-use colored::Colorize;
-use notify::{ EventKind, RecommendedWatcher, Watcher};
-use notify::Config as nconfig;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use crate::config::Config;
+use colored::Colorize;
+use notify::Config as nconfig;
+use notify::{EventKind, RecommendedWatcher, Watcher};
+use tokio::io::{AsyncBufReadExt, BufReader};
 
-#[derive(Debug,Default)]
+#[derive(Debug, Default)]
 pub struct OrchestrationBuilder {
-    config: Config
+    config: Config,
 }
 
 impl OrchestrationBuilder {
     pub fn new(config: Config) -> OrchestrationBuilder {
-        OrchestrationBuilder {
-            config
-        }
+        OrchestrationBuilder { config }
     }
     pub fn set_config(mut self, config: Config) -> OrchestrationBuilder {
         self.config = config;
@@ -22,7 +20,7 @@ impl OrchestrationBuilder {
     pub fn build(self) -> Orchestration {
         Orchestration {
             config: self.config,
-            pids: Vec::new()
+            pids: Vec::new(),
         }
     }
 }
@@ -30,7 +28,7 @@ impl OrchestrationBuilder {
 #[derive(Clone)]
 pub struct Orchestration {
     config: Config,
-    pids: Vec<u32>
+    pids: Vec<u32>,
 }
 
 impl Orchestration {
@@ -45,7 +43,8 @@ impl Orchestration {
             let _ = tokio::process::Command::new("kill")
                 .arg("-9")
                 .arg(pid.to_string())
-                .output().await?;
+                .output()
+                .await?;
         }
         Ok(())
     }
@@ -69,7 +68,12 @@ impl Orchestration {
                             .spawn()
                             .expect("failed to start process");
                         let child_id = child.id();
-                        println!("{} {} with pid {}", "Starting".yellow(), repo.name, child_id.unwrap());
+                        println!(
+                            "{} {} with pid {}",
+                            "Starting".yellow(),
+                            repo.name,
+                            child_id.unwrap()
+                        );
                         tx.send(child.id().unwrap()).await.unwrap();
                         let stdout = child.stdout.take().unwrap();
                         // store the childID
@@ -80,7 +84,7 @@ impl Orchestration {
                             match reader.read_line(&mut line).await {
                                 Ok(0) => break,
                                 Ok(_) => {
-                                    println!("{}",line);
+                                    println!("{}", line);
                                     line.clear();
                                 }
                                 Err(e) => {
@@ -105,13 +109,17 @@ impl Orchestration {
             let repo = self.config.repositories[i].clone();
             // path name
             let path = format!("{}/{}", self.config.folder_root, repo.name.clone());
-            println!("{}",format!("{} {}", "Starting file watcher for ".blue(), path));
+            println!(
+                "{}",
+                format!("{} {}", "Starting file watcher for ".blue(), path)
+            );
             tasks.push(tokio::spawn({
                 async move {
-
                     let (tx, rx) = std::sync::mpsc::channel();
                     let mut watcher = RecommendedWatcher::new(tx, nconfig::default()).unwrap();
-                    watcher.watch(path.as_ref(), notify::RecursiveMode::Recursive).unwrap();
+                    watcher
+                        .watch(path.as_ref(), notify::RecursiveMode::Recursive)
+                        .unwrap();
                     loop {
                         match rx.recv() {
                             Ok(event) => {
@@ -122,8 +130,10 @@ impl Orchestration {
                                         EventKind::Create(_) => {}
                                         EventKind::Modify(_) => {
                                             // restart the components
-                                            println!("Detected changes in {}, reloading", e.paths[0].display());
-
+                                            println!(
+                                                "Detected changes in {}, reloading",
+                                                e.paths[0].display()
+                                            );
                                         }
                                         EventKind::Remove(_) => {}
                                         EventKind::Other => {}
@@ -131,7 +141,7 @@ impl Orchestration {
                                 }
                             }
                             Err(e) => {
-                                 println!("watch error: {:?}", e);
+                                println!("watch error: {:?}", e);
                             }
                         }
                     }
@@ -148,5 +158,4 @@ impl Orchestration {
 
         Ok(())
     }
-
 }
