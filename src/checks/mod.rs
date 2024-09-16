@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use colored::Colorize;
 use std::env;
 
@@ -21,56 +22,36 @@ impl Checks {
     }
 
     pub fn run_preflight(&self) {
-        // check if docker is running
-        let output = std::process::Command::new("docker")
-            .arg("info")
-            .output()
-            .unwrap();
-        if output.status.code().unwrap() != 0 {
-            println!("{}", "Docker is not running".red());
-        } else {
-            println!("{}", "Docker is running".green());
-        }
-        // Check if golang is installed
-        let output = std::process::Command::new("go")
-            .arg("version")
-            .output()
-            .unwrap();
-        if output.status.code().unwrap() != 0 {
-            println!("{}", "Golang is not installed".red());
-        } else {
-            println!("{}", "Golang is installed".green());
-        }
-        // Check if there is an ssh key installed
-        let output = std::process::Command::new("ls")
-            .arg("-al")
-            .arg(format!("{}/.ssh/id_rsa", env::var("HOME").unwrap()))
-            .output()
-            .unwrap();
-        if output.status.code().unwrap() != 0 {
-            println!("{}", "SSH key is not installed".red());
-        } else {
-            println!("{}", "SSH key is installed".green());
-        }
-        // Check if kubectl is installed
-        let output = std::process::Command::new("kubectl")
-            .arg("version")
-            .output()
-            .unwrap();
-        if output.status.code().unwrap() != 0 {
-            println!("{}", "Kubectl is not installed".red());
-        } else {
-            println!("{}", "Kubectl is installed".green());
-        }
-        // Check if Make is installed
-        let output = std::process::Command::new("make")
-            .arg("--version")
-            .output()
-            .unwrap();
-        if output.status.code().unwrap() != 0 {
-            println!("{}", "Make is not installed".red());
-        } else {
-            println!("{}", "Make is installed".green());
+
+        let checklist: HashMap<&str,Vec<&str>> = HashMap::from([
+            ("Docker", vec!["docker", "info"]),
+            ("Golang", vec!["go", "version"]),
+            ("Kubectl", vec!["kubectl", "version"]),
+            ("Make", vec!["make", "--version"]),
+            ]);
+
+        // Loop through the hashmap and tokenise the values into an array of args
+
+        for (key, value) in checklist.iter() {
+            // convert value into an array
+            let output = std::process::Command::new(value[0])
+                .arg(value[1])
+                .output();
+            match output {
+                Ok(x) => {
+                    if x.status.code().unwrap() != 0 {
+                        // print stderr
+                        println!("{} {}", format!("{} is not installed:", key).red(),String::from_utf8_lossy(&x.stderr));
+                        continue
+                    } else {
+                        println!("{}", format!("{} is installed", key).green());
+                    }
+                },
+                Err(e) => {
+                    eprintln!("{}",format!("{} is not installed", key).red());
+                    continue
+                }
+            }
         }
     }
 }

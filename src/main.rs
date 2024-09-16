@@ -89,7 +89,14 @@ async fn main() {
         Commands::Setup { .. } => {
             checks.run_preflight();
             fs::create_dir(config.folder_root.clone()).unwrap_or_else(|why| {
-                println!("! {:?}", why);
+                // If the folder exists let the user know setup has been run
+                if why.kind() == std::io::ErrorKind::AlreadyExists {
+                    println!("{}", "Setup has already been run".green());
+                    // os exit
+                    std::process::exit(0);
+                } else {
+                    panic!("Error creating workspace: {:?}", why)
+                }
             });
             // Fetch the remote repositories
             repo_manager
