@@ -28,6 +28,11 @@ enum Commands {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    // if no arg is selected, print the help menu
+    if args.command.is_none() {
+        println!("{}", "Please select a command".red());
+        return;
+    }
     // This is our global config. It is written to disk when we setup and used as a reference until teardown
     let mut config = config::Config::builder()
         .set_github_organisation_prefix(ORG_PREFIX.to_string())
