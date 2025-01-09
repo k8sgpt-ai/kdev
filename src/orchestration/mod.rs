@@ -1,8 +1,10 @@
+use std::sync::Arc;
 use crate::config::Config;
 use colored::Colorize;
 use notify::Config as nconfig;
 use notify::{EventKind, RecommendedWatcher, Watcher};
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::Mutex;
 
 #[derive(Debug, Default)]
 pub struct OrchestrationBuilder {
@@ -20,7 +22,7 @@ impl OrchestrationBuilder {
     pub fn build(self) -> Orchestration {
         Orchestration {
             config: self.config,
-            pids: Vec::new(),
+            pids: Arc::new(Mutex::new(vec![])),
         }
     }
 }
@@ -28,7 +30,7 @@ impl OrchestrationBuilder {
 #[derive(Clone)]
 pub struct Orchestration {
     config: Config,
-    pids: Vec<u32>,
+    pids: Arc<Mutex<Vec<u32>>>, // Use Arc<Mutex<Vec<u32>>>
 }
 
 impl Orchestration {
@@ -36,27 +38,32 @@ impl Orchestration {
         OrchestrationBuilder::default()
     }
 
-    pub async fn stop_services(self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn stop_services(&self) -> Result<(), Box<dyn std::error::Error>> {
         println!("Stopping services");
-        for pid in self.pids {
-            println!("{} {}", "Stopping".red(), pid);
+
+        let pids = self.pids.lock().await;
+        pids.iter().for_each(|f| {
+            println!("{} {}", "Stopping".red(), f);
             let _ = tokio::process::Command::new("kill")
                 .arg("-9")
-                .arg(pid.to_string())
-                .output()
-                .await?;
-        }
+                .arg(f.to_string())
+                .output();
+        });
         Ok(())
     }
-    pub async fn start_services(mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn start_services(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         println!("Starting services");
         let (tx, mut rx) = tokio::sync::mpsc::channel(self.config.repositories.len());
-        for repo in self.config.repositories {
+        let folder_root = self.config.folder_root.clone();
+        let pids = Arc::clone(&self.pids); // Clone the Arc
+
+        for repo in self.config.repositories.clone() {
             // start each service in a tokio spawn
             tokio::spawn({
                 let repo = repo.clone();
-                let folder_root = self.config.folder_root.clone();
+                let folder_root = folder_root.clone();
                 let tx: tokio::sync::mpsc::Sender<u32> = tx.clone();
+                let pids = Arc::clone(&pids); // Clone the Arc for the task
                 async move {
                     if !repo.command.start.is_empty() {
                         // stream the output from the program
@@ -76,8 +83,10 @@ impl Orchestration {
                         );
                         tx.send(child.id().unwrap()).await.unwrap();
                         let stdout = child.stdout.take().unwrap();
-                        // store the childID
-                        //self.pids.insert(repo.name.clone(), child_id.unwrap());
+
+                        let mut pids = pids.lock().await;// Acquire lock
+                        pids.push(child_id.unwrap()); // Push to the vector
+
                         let mut reader = BufReader::new(stdout);
                         let mut line = String::new();
                         loop {
@@ -98,12 +107,14 @@ impl Orchestration {
             });
         }
         while let Some(message) = rx.recv().await {
-            self.pids.push(message);
+            let mut pids = self.pids.lock().await;
+            pids.push(message);
         }
+
 
         Ok(())
     }
-    pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut tasks = vec![];
         for i in 0..self.config.repositories.len() {
             let repo = self.config.repositories[i].clone();

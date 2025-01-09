@@ -5,8 +5,6 @@ use git2::{Cred, FetchOptions, RemoteCallbacks};
 use std::env;
 use std::error::Error;
 use std::path::Path;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::task::JoinHandle;
 
 #[derive(Default)]
 pub struct RepoManagerBuilder;

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use colored::Colorize;
-use std::env;
 
 pub struct ChecksBuilder;
 

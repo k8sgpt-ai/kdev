@@ -48,10 +48,7 @@ async fn main() {
             },
             Repository {
                 name: "schemas".to_string(),
-                command: Command {
-                    start: "".to_string(),
-                    env: "".to_string(),
-                },
+                command: Command::default(),
                 checkout_info: None,
             },
             Repository {
@@ -64,13 +61,13 @@ async fn main() {
             },
         ])
         .build();
-    if config.clone().exists() {
+    if config.exists() {
         // reload the config from disk and update the orchestrator
         config = config.read_config().unwrap()
     }
     let checks = checks::Checks::builder().build();
     let repo_manager = repo::RepoManager::builder().build();
-    let orchestrator = orchestration::Orchestration::builder()
+    let mut orchestrator = orchestration::Orchestration::builder()
         .set_config(config.clone())
         .build();
 
@@ -79,7 +76,9 @@ async fn main() {
     tokio::spawn({
         // This code branch will not be updated
         let orchestrator = orchestrator.clone();
-        async {
+        async move
+
+            {
             let mut term = signal(SignalKind::interrupt()).unwrap();
             term.recv().await;
             println!("{}", "Received interrupt signal".red());

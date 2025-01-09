@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Command {
     pub start: String,
     pub env: String,
@@ -67,20 +67,20 @@ impl Config {
         ConfigBuilder::default()
     }
 
-    pub fn write_config(self) -> std::io::Result<()> {
+    pub fn write_config(&self) -> std::io::Result<()> {
         // encode the config with serde_json
-        let encoded = serde_json::to_string(&self).unwrap();
+        let encoded = serde_json::to_string(self)?;
         // write the config to disk into the folder_root
         let path = format!("{}/config.json", self.folder_root);
         std::fs::write(path, encoded)
     }
-    pub fn read_config(self) -> Result<Config, Box<dyn Error>> {
+    pub fn read_config(&self) -> Result<Config, Box<dyn Error>> {
         let path = format!("{}/config.json", self.folder_root);
         let contents = std::fs::read_to_string(path)?;
         let config: Config = serde_json::from_str(&contents)?;
         Ok(config)
     }
-    pub fn exists(self) -> bool {
+    pub fn exists(&self) -> bool {
         let path = format!("{}/config.json", self.folder_root);
         std::path::Path::new(&path).exists()
     }
